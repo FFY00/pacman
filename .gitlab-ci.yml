@@ -1,0 +1,116 @@
+variables:
+  MAKEFLAGS: "-j10"
+  VERBOSE: 1
+
+.arch-test:
+  image: archlinux/base
+  before_script:
+    - >
+      pacman -Syu --needed --noconfirm
+      base-devel git
+      gpgme libarchive curl
+      asciidoc python
+      fakeroot fakechroot autoconf-archive
+
+arch-default:
+  extends: .arch-test
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - make
+    - fakechroot make check
+
+arch-clang:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm clang
+    - autoreconf -i
+    - CC=clang ./configure --enable-warningflags
+    - make
+    - fakechroot make check
+
+arch-meson:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm meson
+    - meson build
+    - ninja -C build
+    - fakechroot meson test -C build
+
+arch-distcheck:
+  extends: .arch-test
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - fakechroot make distcheck
+
+arch-valgrind:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm valgrind
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - make
+    - fakechroot make PY_LOG_FLAGS=--valgrind check
+
+arch-no-gpg:
+  extends: .arch-test
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags --without-gpgme
+    - make
+    - fakechroot make check
+
+arch-no-curl:
+  extends: .arch-test
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags --without-libcurl
+    - make
+    - fakechroot make check
+
+arch-no-nls:
+  extends: .arch-test
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags --disable-nls
+    - make
+    - fakechroot make check
+
+debian-test:
+  image: debian
+  before_script:
+    - apt update
+    - >
+      apt -y install --no-install-recommends
+      git make autoconf autopoint automake pkg-config patch gcc libtool
+      libgpgme-dev libarchive-dev libcurl4-openssl-dev libssl-dev curl
+      gettext python3 dash gawk ca-certificates
+      asciidoc docbook-xsl xsltproc libxml2-utils
+      fakeroot fakechroot autoconf-archive
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - make
+    - fakechroot make check
+
+debian-gcc:
+  extends: debian-test
+  image: gcc
+
+fedora:
+  image: fedora
+  before_script:
+    - >
+      dnf -y install
+      git findutils patch sed
+      make automake autoconf gcc libtool
+      gpgme-devel libarchive-devel libcurl-devel openssl-devel gettext-devel
+      asciidoc python3 dash gawk
+      fakeroot fakechroot autoconf-archive
+      perl-Module-Load-Conditional
+  script:
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - make
+    - fakechroot make check
