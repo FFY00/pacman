@@ -9,94 +9,107 @@ variables:
       pacman -Syu --needed --noconfirm
       base-devel git
       gpgme libarchive curl
-      asciidoc python
-      fakeroot fakechroot autoconf-archive
+      python
+      fakeroot fakechroot
+      meson
 
-arch-default:
+arch:
   extends: .arch-test
   script:
+    - meson build
+    - ninja -C build
+    - fakechroot meson test -C build
+
+arch-debug:
+  extends: .arch-test
+  script:
+    - meson --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
+
+arch-docs:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm asciidoc
+    - meson -Ddoc=enabled build
+    - ninja -C build
+
+arch-autoconf:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm autoconf-archive
     - autoreconf -i
-    - ./configure --enable-warningflags
+    - ./configure --enable-warningflags --disable-doc
     - make
     - fakechroot make check
+
+arch-distcheck:
+  extends: .arch-test
+  script:
+    - pacman -Syu --needed --noconfirm autoconf-archive asciidoc
+    - autoreconf -i
+    - ./configure --enable-warningflags
+    - fakechroot make distcheck
 
 arch-clang:
   extends: .arch-test
   script:
     - pacman -Syu --needed --noconfirm clang
-    - autoreconf -i
-    - CC=clang ./configure --enable-warningflags
-    - make
-    - fakechroot make check
-
-arch-meson:
-  extends: .arch-test
-  script:
-    - pacman -Syu --needed --noconfirm meson
-    - meson build
+    - CC=clang meson build
     - ninja -C build
     - fakechroot meson test -C build
-
-arch-distcheck:
-  extends: .arch-test
-  script:
-    - autoreconf -i
-    - ./configure --enable-warningflags
-    - fakechroot make distcheck
 
 arch-valgrind:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm valgrind
+    - pacman -Syu --needed --noconfirm autoconf-archive valgrind
     - autoreconf -i
-    - ./configure --enable-warningflags
+    - ./configure --enable-warningflags --disable-doc
     - make
     - fakechroot make PY_LOG_FLAGS=--valgrind check
+
+arch-nettle:
+  extends: .arch-test
+  script:
+    - meson -Dcrypto=nettle --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
 
 arch-no-gpg:
   extends: .arch-test
   script:
-    - autoreconf -i
-    - ./configure --enable-warningflags --without-gpgme
-    - make
-    - fakechroot make check
+    - meson -Dgpgme=disabled --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
 
 arch-no-curl:
   extends: .arch-test
   script:
-    - autoreconf -i
-    - ./configure --enable-warningflags --without-libcurl
-    - make
-    - fakechroot make check
+    - meson -Dcurl=disabled --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
 
 arch-no-nls:
   extends: .arch-test
   script:
-    - autoreconf -i
-    - ./configure --enable-warningflags --disable-nls
-    - make
-    - fakechroot make check
+    - meson -Di18n=false --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
 
-debian-test:
-  image: debian
+debian:
+  image: debian:bullseye
   before_script:
     - apt update
     - >
       apt -y install --no-install-recommends
-      git make autoconf autopoint automake pkg-config patch gcc libtool
+      git pkg-config meson gcc libtool
       libgpgme-dev libarchive-dev libcurl4-openssl-dev libssl-dev curl
-      gettext python3 dash gawk ca-certificates
-      asciidoc docbook-xsl xsltproc libxml2-utils
-      fakeroot fakechroot autoconf-archive
+      gettext python3 python3-setuptools dash gawk ca-certificates
+      fakeroot fakechroot
   script:
-    - autoreconf -i
-    - ./configure --enable-warningflags
-    - make
-    - fakechroot make check
-
-debian-gcc:
-  extends: debian-test
-  image: gcc
+    - meson --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
 
 fedora:
   image: fedora
@@ -104,13 +117,12 @@ fedora:
     - >
       dnf -y install
       git findutils patch sed
-      make automake autoconf gcc libtool
+      meson gcc libtool
       gpgme-devel libarchive-devel libcurl-devel openssl-devel gettext-devel
       asciidoc python3 dash gawk
-      fakeroot fakechroot autoconf-archive
+      fakeroot fakechroot
       perl-Module-Load-Conditional
   script:
-    - autoreconf -i
-    - ./configure --enable-warningflags
-    - make
-    - fakechroot make check
+    - meson --buildtype=debug build
+    - ninja -C build
+    - fakechroot meson test -C build
