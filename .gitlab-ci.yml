@@ -18,7 +18,7 @@ arch:
   script:
     - meson build
     - ninja -C build
-    - fakechroot meson test -C build
+    - meson test -C build
 
 arch-debug:
   extends: .arch-test
