@@ -1,12 +1,19 @@
 variables:
   MAKEFLAGS: "-j10"
   VERBOSE: 1
+  PACMAN_OPTS: --needed --noconfirm --cachedir .pkg-cache
+
+cache:
+  key: pkgs-v1
+  paths:
+    # For some reason Gitlab CI only supports storing cache/artifacts in a path relative to the build directory
+    - .pkg-cache
 
 .arch-test:
   image: archlinux/base
   before_script:
     - >
-      pacman -Syu --needed --noconfirm
+      pacman -Syu $PACMAN_OPTS
       base-devel git
       gpgme libarchive curl
       python
@@ -30,14 +37,14 @@ arch-debug:
 arch-docs:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm asciidoc
+    - pacman -Syu $PACMAN_OPTS asciidoc
     - meson -Ddoc=enabled build
     - ninja -C build
 
 arch-autoconf:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm autoconf-archive
+    - pacman -Syu $PACMAN_OPTS autoconf-archive
     - autoreconf -i
     - ./configure --enable-warningflags --disable-doc
     - make
@@ -46,7 +53,7 @@ arch-autoconf:
 arch-distcheck:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm autoconf-archive asciidoc
+    - pacman -Syu $PACMAN_OPTS autoconf-archive asciidoc
     - autoreconf -i
     - ./configure --enable-warningflags
     - fakechroot make distcheck
@@ -54,7 +61,7 @@ arch-distcheck:
 arch-clang:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm clang
+    - pacman -Syu $PACMAN_OPTS clang
     - CC=clang meson build
     - ninja -C build
     - fakechroot meson test -C build
@@ -62,7 +69,7 @@ arch-clang:
 arch-valgrind:
   extends: .arch-test
   script:
-    - pacman -Syu --needed --noconfirm autoconf-archive valgrind
+    - pacman -Syu $PACMAN_OPTS autoconf-archive valgrind
     - autoreconf -i
     - ./configure --enable-warningflags --disable-doc
     - make
@@ -98,6 +105,7 @@ arch-no-nls:
 
 debian:
   image: debian:bullseye
+  cache: {}
   before_script:
     - apt update
     - >
@@ -113,6 +121,7 @@ debian:
 
 fedora:
   image: fedora
+  cache: {}
   before_script:
     - >
       dnf -y install
